@@ -5,6 +5,7 @@ import subprocess
 import tempfile
 import os.path
 import shutil
+import distutils.spawn
 
 def runcmd(argv):
 	proc = subprocess.Popen(argv, bufsize=1048576, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
@@ -17,6 +18,14 @@ if __name__ == '__main__':
 	input_pattern = sys.argv[1]
 	first_number = int(sys.argv[2])
 	output_file = sys.argv[3]
+
+	missing_req = False	
+	for executable in ['convert', 'ffmpeg']:
+		if not distutils.spawn.find_executable(executable):
+			sys.stderr.write('Cannot find executable %s which is needed in order for lapse to operate.' % executable)
+			missing_req = True
+	if missing_req:
+		sys.exit(2)
 	
 	max_geometry = "1200x720"
 
