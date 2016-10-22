@@ -51,8 +51,6 @@ if __name__ == '__main__':
             number += 1
     elif options.filelist_stdin:
         file_names = [fn for fn in sys.stdin.read().split('\n') if os.path.isfile(fn)]
-        # should we sort by create time? filename should do though
-        file_names.sort()
 
     try:
         file_pat = 'frame%05d.jpg'
