@@ -8,47 +8,47 @@ import shutil
 import distutils.spawn
 
 def runcmd(argv):
-	proc = subprocess.Popen(argv, bufsize=1048576, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-	o, e = proc.communicate()
-	if proc.returncode != 0:
-		print(e)
-		sys.exit(proc.returncode)
+    proc = subprocess.Popen(argv, bufsize=1048576, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+    o, e = proc.communicate()
+    if proc.returncode != 0:
+        print(e)
+        sys.exit(proc.returncode)
 
 if __name__ == '__main__':
-	input_pattern = sys.argv[1]
-	first_number = int(sys.argv[2])
-	output_file = sys.argv[3]
+    input_pattern = sys.r[1]
+    first_number = int(sys.argv[2])
+    output_file = sys.argv[3]
 
-	missing_req = False	
-	for executable in ['convert', 'ffmpeg']:
-		if not distutils.spawn.find_executable(executable):
-			sys.stderr.write('Cannot find executable %s which is needed in order for lapse to operate.' % executable)
-			missing_req = True
-	if missing_req:
-		sys.exit(2)
-	
-	max_geometry = "1200x720"
+    missing_req = False    
+    for executable in ['convert', 'ffmpeg']:
+        if not distutils.spawn.find_executable(executable):
+            sys.stderr.write('Cannot find executable %s which is needed in order for lapse to operate.' % executable)
+            missing_req = True
+    if missing_req:
+        sys.exit(2)
+    
+    max_geometry = "1200x720"
 
-	temp_dir = tempfile.mkdtemp()
+    temp_dir = tempfile.mkdtemp()
 
-	try:
-		# TODO maybe make this handle it nicely if the files have a gap... tolerate one or two? Canon does that sometimes.
-		number = first_number
-		file_found = True
-		file_names = []
-		while file_found:
-			file_name = input_pattern % number
-			file_found = os.path.isfile(file_name)
-			if file_found:
-				file_names.append(file_name)
-			number += 1
+    try:
+        # TODO maybe make this handle it nicely if the files have a gap... tolerate one or two? Canon does that sometimes.
+        number = first_number
+        file_found = True
+        file_names = []
+        while file_found:
+            file_name = input_pattern % number
+            file_found = os.path.isfile(file_name)
+            if file_found:
+                file_names.append(file_name)
+            number += 1
 
-		small_pat = os.path.join(temp_dir, 'frame%05d.jpg')
+        small_pat = os.path.join(temp_dir, 'frame%05d.jpg')
 
-		for number, file_name in enumerate(file_names):
-			runcmd(['convert', '-geometry', max_geometry, '-quality', '95', file_name, small_pat % number])
+        for number, file_name in enumerate(file_names):
+            runcmd(['convert', '-geometry', max_geometry, '-quality', '95', file_name, small_pat % number])
 
-		runcmd(['ffmpeg', '-f', 'image2', '-start_number', '0', '-i', small_pat, '-c:v', 'libx264', '-preset', 'slow', '-tune', 'stillimage', output_file])
-	finally:
-		shutil.rmtree(temp_dir)
+        runcmd(['ffmpeg', '-f', 'image2', '-start_number', '0', '-i', small_pat, '-c:v', 'libx264', '-preset', 'slow', '-tune', 'stillimage', output_file])
+    finally:
+        shutil.rmtree(temp_dir)
 
