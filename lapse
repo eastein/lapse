@@ -26,9 +26,10 @@ if __name__ == '__main__':
 
     parser = optparse.OptionParser()
     parser.add_option('--input-pattern', dest='input_pattern', default=None, help="Pattern for files. Py integer format required.")
-    parser.add_option('-o', '--output-file', dest='output_file', help="Where to write mkv file.")
     parser.add_option('-n', dest='first_number', default='1', help="Number to start input files with. Use iwth --input-pattern.")
+    parser.add_option('--stdin', action='store_true', dest='filelist_stdin', default=False)
     parser.add_option('--max-geometry', dest='max_geometry', default="1200x720")
+    parser.add_option('-o', '--output-file', dest='output_file', help="Where to write mkv file.")
     (options, args) = parser.parse_args()
 
     input_pattern = options.input_pattern
@@ -48,6 +49,10 @@ if __name__ == '__main__':
             if file_found:
                 file_names.append(file_name)
             number += 1
+    elif options.filelist_stdin:
+        file_names = [fn for fn in sys.stdin.read().split('\n') if os.path.isfile(fn)]
+        # should we sort by create time? filename should do though
+        file_names.sort()
 
     try:
         file_pat = 'frame%05d.jpg'
