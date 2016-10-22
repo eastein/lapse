@@ -2,6 +2,7 @@
 
 import sys
 import subprocess
+import optparse
 import tempfile
 import os.path
 import shutil
@@ -15,27 +16,32 @@ def runcmd(argv):
         sys.exit(proc.returncode)
 
 if __name__ == '__main__':
-    input_pattern = sys.r[1]
-    first_number = int(sys.argv[2])
-    output_file = sys.argv[3]
-
-    missing_req = False    
+    missing_req = False
     for executable in ['convert', 'ffmpeg']:
         if not distutils.spawn.find_executable(executable):
             sys.stderr.write('Cannot find executable %s which is needed in order for lapse to operate.' % executable)
             missing_req = True
     if missing_req:
         sys.exit(2)
-    
-    max_geometry = "1200x720"
+
+    parser = optparse.OptionParser()
+    parser.add_option('--input-pattern', dest='input_pattern', default=None, help="Pattern for files. Py integer format required.")
+    parser.add_option('-o', '--output-file', dest='output_file', help="Where to write mkv file.")
+    parser.add_option('-n', dest='first_number', default='1', help="Number to start input files with. Use iwth --input-pattern.")
+    parser.add_option('--max-geometry', dest='max_geometry', default="1200x720")
+    (options, args) = parser.parse_args()
+
+    input_pattern = options.input_pattern
+    first_number = int(options.first_number)
+    output_file = options.output_file
+    max_geometry = options.max_geometry
 
     temp_dir = tempfile.mkdtemp()
 
-    try:
-        # TODO maybe make this handle it nicely if the files have a gap... tolerate one or two? Canon does that sometimes.
+    file_names = []
+    if input_pattern:
         number = first_number
         file_found = True
-        file_names = []
         while file_found:
             file_name = input_pattern % number
             file_found = os.path.isfile(file_name)
@@ -43,12 +49,17 @@ if __name__ == '__main__':
                 file_names.append(file_name)
             number += 1
 
-        small_pat = os.path.join(temp_dir, 'frame%05d.jpg')
+    try:
+        file_pat = 'frame%05d.jpg'
+        def get_temp_frame_image_filename(number):
+            return os.path.join(temp_dir, file_pat % number)
+        ffmpeg_pat = os.path.join(temp_dir, file_pat)
 
         for number, file_name in enumerate(file_names):
-            runcmd(['convert', '-geometry', max_geometry, '-quality', '95', file_name, small_pat % number])
+            small_jpeg_file = get_temp_frame_image_filename(number)
+            runcmd(['convert', '-geometry', max_geometry, '-quality', '95', file_name, small_jpeg_file])
 
-        runcmd(['ffmpeg', '-f', 'image2', '-start_number', '0', '-i', small_pat, '-c:v', 'libx264', '-preset', 'slow', '-tune', 'stillimage', output_file])
+        runcmd(['ffmpeg', '-f', 'image2', '-start_number', '0', '-i', ffmpeg_pat, '-c:v', 'libx264', '-preset', 'slow', '-tune', 'stillimage', output_file])
     finally:
         shutil.rmtree(temp_dir)
 
