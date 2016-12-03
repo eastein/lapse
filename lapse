@@ -6,6 +6,7 @@ import optparse
 import tempfile
 import os.path
 import shutil
+import shlex
 import distutils.spawn
 
 def runcmd(argv):
@@ -29,6 +30,7 @@ if __name__ == '__main__':
     parser.add_option('-n', dest='first_number', default='1', help="Number to start input files with. Use iwth --input-pattern.")
     parser.add_option('--stdin', action='store_true', dest='filelist_stdin', default=False)
     parser.add_option('--max-geometry', dest='max_geometry', default="1200x720")
+    parser.add_option('--convert-args', dest='convert_args', default=None, help="Additional arguments to the ImageMagick convert (will be inserted before the resize to max geometry size")
     parser.add_option('-o', '--output-file', dest='output_file', help="Where to write mkv file.")
     (options, args) = parser.parse_args()
 
@@ -36,7 +38,9 @@ if __name__ == '__main__':
     first_number = int(options.first_number)
     output_file = options.output_file
     max_geometry = options.max_geometry
-
+    convert_args = []
+    if options.convert_args is not None:
+        convert_args = shlex.split(options.convert_args)
     temp_dir = tempfile.mkdtemp()
 
     file_names = []
@@ -52,15 +56,23 @@ if __name__ == '__main__':
     elif options.filelist_stdin:
         file_names = [fn for fn in sys.stdin.read().split('\n') if os.path.isfile(fn)]
 
+    n_files = len(file_names)
+
     try:
-        file_pat = 'frame%05d.jpg'
+        file_pat = 'frame%08d.jpg'
+
         def get_temp_frame_image_filename(number):
             return os.path.join(temp_dir, file_pat % number)
         ffmpeg_pat = os.path.join(temp_dir, file_pat)
 
         for number, file_name in enumerate(file_names):
             small_jpeg_file = get_temp_frame_image_filename(number)
-            runcmd(['convert', '-geometry', max_geometry, '-quality', '95', file_name, small_jpeg_file])
+            runcmd(['convert'] + convert_args + ['-geometry', max_geometry, '-quality', '95', file_name, small_jpeg_file])
+
+            sys.stdout.write('.')
+            if (number + 1) % 100 == 0:
+                sys.stdout.write('%d/%d\n' % (number, n_files))
+            sys.stdout.flush()
 
         runcmd(['ffmpeg', '-f', 'image2', '-start_number', '0', '-i', ffmpeg_pat, '-c:v', 'libx264', '-preset', 'slow', '-tune', 'stillimage', output_file])
     finally:
