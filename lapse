@@ -9,6 +9,7 @@ import os
 import re
 import shutil
 import shlex
+import glob
 import distutils.spawn
 
 def runcmd(argv):
@@ -29,10 +30,12 @@ if __name__ == '__main__':
 
     parser = optparse.OptionParser()
     parser.add_option('--input-pattern', dest='input_pattern', default=None, help="Pattern for files. Py integer format required.")
+    parser.add_option('--glob', action='store_true', dest='do_glob', default=False, help="If specified, do glob match for one file per output of the input pattern")
     parser.add_option('-n', dest='first_number', default='1', help="Number to start input files with. Use iwth --input-pattern.")
     parser.add_option('--stdin', action='store_true', dest='filelist_stdin', default=False)
     parser.add_option('--max-geometry', dest='max_geometry', default="1200x720")
     parser.add_option('--use-imagemagick', action='store_true', dest='use_imagemagick', default=False, help='Force downscaling to happen in ImageMagick')
+    parser.add_option('-v', action='store_true', dest='verbose', default=False, help='Print more details about file scan step')
     parser.add_option('--convert-args', dest='convert_args', default=None, help="Additional arguments to the ImageMagick convert (will be inserted before the resize to max geometry size). This also causes the downscales to happen inside ImageMagick, which will typically be slower.")
     parser.add_option('-o', '--output-file', dest='output_file', help="Where to write mkv file.")
     (options, args) = parser.parse_args()
@@ -40,6 +43,8 @@ if __name__ == '__main__':
     input_pattern = options.input_pattern
     first_number = int(options.first_number)
     output_file = options.output_file
+    be_verbose = options.verbose
+    do_glob = options.do_glob
 
     use_imagemagick = options.use_imagemagick
     max_geometry_match = re.match('^([0-9]+)x([0-9]+)$', options.max_geometry)
@@ -62,9 +67,26 @@ if __name__ == '__main__':
         file_found = True
         while file_found:
             file_name = input_pattern % number
+            if do_glob:
+               glob_file_names = glob.glob(file_name)
+               if glob_file_names:
+                   glob_file_names.sort()
+                   file_name = glob_file_names[0]
+                
+            if be_verbose:
+                print('checking for %s' % file_name)
             file_found = os.path.isfile(file_name)
             if file_found:
-                file_names.append(file_name)
+                if os.path.getsize(file_name) > 0:
+                    if be_verbose:
+                        print('  [+] found and contains data')
+                    file_names.append(file_name)
+                else:
+                    if be_verbose:
+                        print('  [-] found but empty')
+            else:
+                if be_verbose:
+                    print('  [x] not found, stopping scan')
             number += 1
     elif options.filelist_stdin:
         file_names = [fn for fn in sys.stdin.read().split('\n') if os.path.isfile(fn)]
@@ -81,7 +103,7 @@ if __name__ == '__main__':
         for number, file_name in enumerate(file_names):
             small_jpeg_file = get_temp_frame_image_filename(number)
             if use_imagemagick:
-                runcmd(['convert'] + convert_args + ['-geometry', '%dx%d' % max_geometry, '-quality', '95', file_name, small_jpeg_file])
+                runcmd(['convert'] + convert_args + ['-geometry', '%dx%d' % max_geometry, '-quality', '100', file_name, small_jpeg_file])
             else:
                 # it's not really being made small... rename var would be a good idea
                 os.symlink(os.path.abspath(file_name), small_jpeg_file)
